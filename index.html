@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Agentic Form Generator</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
+        input { width: 75%; padding: 10px; font-size: 16px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4CAF50; color: white; border: none; }
+        
+        /* New styling for the Gemini-style status */
+        #status-indicator { margin-top: 20px; font-style: italic; color: #666; height: 24px; }
+        #result-box { margin-top: 20px; font-size: 18px; }
+    </style>
+</head>
+<body>
+
+    <h2>AI Form Generator ⚡️</h2>
+    <p>Describe the form you want to build:</p>
+    
+    <div>
+        <input type="text" id="prompt" placeholder="E.g., Create a gym feedback survey...">
+        <button onclick="generateForm()">Build Form</button>
+    </div>
+
+    <!-- The single line that will change in place -->
+    <div id="status-indicator"></div>
+    
+    <!-- The box for the final output -->
+    <div id="result-box"></div>
+
+    <script>
+        function generateForm() {
+            const promptInput = document.getElementById("prompt").value;
+            const statusIndicator = document.getElementById("status-indicator");
+            const resultBox = document.getElementById("result-box");
+            
+            // Reset the UI for a new run
+            statusIndicator.innerText = "Dialing the AI agent...";
+            resultBox.innerHTML = "";
+            
+            const ws = new WebSocket("ws://localhost:8000/ws/generate-form");
+            
+            ws.onopen = function() {
+                ws.send(JSON.stringify({ prompt: promptInput }));
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                // Overwrite the text instead of appending a list!
+                if (data.status) {
+                    statusIndicator.innerText = `✨ ${data.status}`;
+                }
+                
+                // When finished, clear the status and show the final result
+                if (data.title) {
+                    statusIndicator.innerText = ""; // Hide the status
+                    resultBox.innerHTML = `<span style='color: green;'><strong>✅ Form Created: ${data.title}</strong></span>`;
+                }
+            };
+            
+            ws.onerror = function(err) {
+                statusIndicator.innerText = "❌ Connection error. Is Uvicorn running?";
+                statusIndicator.style.color = "red";
+            };
+        }
+    </script>
+</body>
+</html>
