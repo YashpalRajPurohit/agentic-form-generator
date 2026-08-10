@@ -1,6 +1,6 @@
 import uuid
 
-from schemas import Form, Question, QuestionType, Section
+from app.database.schemas import Form, Question, QuestionType, Section
 
 
 def flatten_form(form: Form) -> list[dict]:

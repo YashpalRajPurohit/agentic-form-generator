@@ -12,6 +12,7 @@ venv/
 env/
 
 # credentials
+credentials/
 oauth_client_credentials.json
 web_client_secret.json
 token.json

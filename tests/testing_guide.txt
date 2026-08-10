@@ -1,6 +1,6 @@
 Web OAuth & WebSocket Testing Guide
 Prerequisite:
-Ensure your FastAPI server is running (uv run uvicorn main:app --reload).
+Ensure your FastAPI server is running (uv run uvicorn app.main:app --reload).
 
 Crucial Rule: The Domain Must Match!
 Browsers treat localhost and 127.0.0.1 as entirely different websites. If you mix them, your browser will drop the session cookie, resulting in a State mismatch. Potential CSRF attack. error or an Unauthorized WebSocket error. Always use localhost.

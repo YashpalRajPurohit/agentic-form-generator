@@ -1,10 +1,13 @@
 import os
+from pathlib import Path
 
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 
-from schemas import Form, QuestionType
+from app.database.schemas import Form, QuestionType
+
+ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 
 # 1. Tells OAuthLib to ignore the "Scope has changed" warnings
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
@@ -17,7 +20,11 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive.file"
 ]
 
-CLIENT_SECRETS_FILE = os.getenv("GOOGLE_CLIENT_SECRETS_FILE", "web_client_secret.json")
+CLIENT_SECRETS_FILE = os.getenv(
+    "GOOGLE_CLIENT_SECRETS_FILE", 
+    str(ROOT_DIR / "credentials" / "web_client_secret.json")
+)
+
 REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/callback")
 
 

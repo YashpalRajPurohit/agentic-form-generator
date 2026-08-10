@@ -12,8 +12,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from pydantic import ValidationError
 
-from form_utils import authenticate_user
-from schemas import Form, QuestionType
+from app.services.form_utils import authenticate_user
+from app.database.schemas import Form, QuestionType
 
 
 class AgentState(TypedDict):

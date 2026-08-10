@@ -1,6 +1,6 @@
 from typing import Optional, TypedDict
 
-from schemas import Form
+from app.database.schemas import Form
 
 
 class AgentState(TypedDict):

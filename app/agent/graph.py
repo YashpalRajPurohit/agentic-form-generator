@@ -13,12 +13,12 @@ from langgraph.graph import END, StateGraph
 from psycopg_pool import ConnectionPool
 from pydantic import ValidationError
 
-from form_utils import get_forms_service_from_dict
-from schemas import Form
-from state import AgentState
+from app.services.form_utils import get_forms_service_from_dict
+from app.database.schemas import Form
+from app.agent.state import AgentState
 
 # --- LOCAL IMPORTS ---
-from sync_engine import generate_patch_requests, generate_routing_requests
+from app.services.sync_engine import generate_patch_requests, generate_routing_requests
 
 load_dotenv()
 

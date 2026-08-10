@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 from fastapi import (
     Depends,
@@ -13,11 +14,12 @@ from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
-import models
-from database import engine, get_db
-from form_utils import exchange_code_for_credentials, generate_auth_url
-from graph import build_form_graph
+import app.database.models as models
+from app.agent.graph import build_form_graph
+from app.database.database import engine, get_db
+from app.services.form_utils import exchange_code_for_credentials, generate_auth_url
 
+ROOT_DIR = Path(__file__).resolve().parent.parent
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Agentic Form Generator")
@@ -36,7 +38,8 @@ form_graph = build_form_graph()
 @app.get("/")
 def serve_frontend():
     """Serves the index.html file on the same domain as the backend."""
-    return FileResponse("index.html")
+    frontend_path = str(ROOT_DIR / "frontend" / "index.html")
+    return FileResponse(frontend_path)
 
 
 # ==========================================
