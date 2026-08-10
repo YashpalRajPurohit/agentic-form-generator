@@ -7,6 +7,7 @@
         body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
         input { width: 75%; padding: 10px; font-size: 16px; }
         button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4CAF50; color: white; border: none; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
         
         /* New styling for the Gemini-style status */
         #status-indicator { margin-top: 20px; font-style: italic; color: #666; height: 24px; }
@@ -20,7 +21,7 @@
     
     <div>
         <input type="text" id="prompt" placeholder="E.g., Create a gym feedback survey...">
-        <button onclick="generateForm()">Build Form</button>
+        <button id="submit-btn" onclick="generateForm()">Build Form</button>
     </div>
 
     <!-- The single line that will change in place -->
@@ -30,39 +31,74 @@
     <div id="result-box"></div>
 
     <script>
+        // 1. Global variable to store the session ID
+        let currentThreadId = null;
+
         function generateForm() {
-            const promptInput = document.getElementById("prompt").value;
+            const promptInput = document.getElementById("prompt");
+            const promptText = promptInput.value.trim();
             const statusIndicator = document.getElementById("status-indicator");
             const resultBox = document.getElementById("result-box");
+            const submitBtn = document.getElementById("submit-btn");
             
-            // Reset the UI for a new run
+            if (!promptText) return;
+            
+            // Lock the UI for a new run
+            submitBtn.disabled = true;
+            statusIndicator.style.color = "#666";
             statusIndicator.innerText = "Dialing the AI agent...";
-            resultBox.innerHTML = "";
             
             const ws = new WebSocket("ws://localhost:8000/ws/generate-form");
             
             ws.onopen = function() {
-                ws.send(JSON.stringify({ prompt: promptInput }));
+                // 2. Send the thread_id along with the prompt
+                ws.send(JSON.stringify({ 
+                    prompt: promptText,
+                    thread_id: currentThreadId 
+                }));
             };
             
             ws.onmessage = function(event) {
                 const data = JSON.parse(event.data);
                 
+                if (data.error) {
+                    statusIndicator.innerText = `❌ Error: ${data.error}`;
+                    statusIndicator.style.color = "red";
+                    submitBtn.disabled = false;
+                    return;
+                }
+
                 // Overwrite the text instead of appending a list!
                 if (data.status) {
                     statusIndicator.innerText = `✨ ${data.status}`;
                 }
                 
-                // When finished, clear the status and show the final result
+                // 3. Capture the thread_id when the server returns it
+                if (data.thread_id) {
+                    currentThreadId = data.thread_id;
+                    console.log("Session active! Thread ID:", currentThreadId);
+                }
+                
+                // 4. When finished, clear the status and show the final result
                 if (data.title) {
                     statusIndicator.innerText = ""; // Hide the status
-                    resultBox.innerHTML = `<span style='color: green;'><strong>✅ Form Created: ${data.title}</strong></span>`;
+                    resultBox.innerHTML = `<span style='color: green;'><strong>✅ Form Ready: ${data.title}</strong></span>`;
+                    
+                    // Clean up the input for the next edit
+                    promptInput.value = "";
+                    promptInput.placeholder = "Type your edits here (e.g., 'Make question 1 a dropdown')";
+                    submitBtn.disabled = false;
                 }
             };
             
             ws.onerror = function(err) {
                 statusIndicator.innerText = "❌ Connection error. Is Uvicorn running?";
                 statusIndicator.style.color = "red";
+                submitBtn.disabled = false;
+            };
+
+            ws.onclose = function() {
+                submitBtn.disabled = false;
             };
         }
     </script>

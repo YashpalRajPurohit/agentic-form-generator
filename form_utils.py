@@ -35,19 +35,20 @@ def translate_to_google_api(form_data: Form) -> list[dict]:
     requests = []
     index = 0  # Google requires us to specify the exact index where each item is placed
     
-    for section in form_data.sections:
-        # 1. Add a Text Item to act as the Section Header
-        requests.append({
-            "createItem": {
-                "item": {
-                    "title": section.title,
-                    "description": section.description or "",
-                    "pageBreakItem": {}  # A read-only text block in the form
-                },
-                "location": {"index": index}
-            }
-        })
-        index += 1
+    for i, section in enumerate(form_data.sections):
+        # 1. Add a Text Item to act as the Section Header ONLY if it's not the first section
+        if i != 0:
+            requests.append({
+                "createItem": {
+                    "item": {
+                        "title": section.title,
+                        "description": section.description or "",
+                        "pageBreakItem": {}  # A read-only text block in the form
+                    },
+                    "location": {"index": index}
+                }
+            })
+            index += 1
 
         # 2. Iterate through the questions in this section
         for q in section.questions:
@@ -72,10 +73,8 @@ def translate_to_google_api(form_data: Form) -> list[dict]:
                 question_payload["textQuestion"] = {"paragraph": True}
                 
             elif q.type in [QuestionType.MULTIPLE_CHOICE, QuestionType.CHECKBOXES, QuestionType.DROPDOWN]:
-                # Google uses a 'value' key for options. We map our Pydantic 'label' to it.
-                choices = [{"value": opt.label} for opt in (q.options or [])]
+                choices = [{"value": opt} if isinstance(opt, str) else {"value": getattr(opt, 'label', str(opt))} for opt in (q.options or [])]
                 
-                # Determine the correct Google choice type
                 if q.type == QuestionType.MULTIPLE_CHOICE:
                     g_type = "RADIO"
                 elif q.type == QuestionType.CHECKBOXES:
@@ -98,7 +97,6 @@ def translate_to_google_api(form_data: Form) -> list[dict]:
             index += 1
             
     return requests
-
 
 
 # def test_google_apis():
