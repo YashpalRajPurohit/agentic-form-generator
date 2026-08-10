@@ -1,5 +1,7 @@
 from typing import Optional, TypedDict
+
 from schemas import Form
+
 
 class AgentState(TypedDict):
     user_prompt: str
@@ -9,3 +11,5 @@ class AgentState(TypedDict):
     google_form_id: Optional[str]
     error_message: Optional[str]
     retries: int
+
+    user_google_creds: Optional[dict]

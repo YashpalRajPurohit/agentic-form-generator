@@ -1,58 +1,109 @@
-import os 
-from google.auth.transport.requests import Request
+import os
+
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+
 from schemas import Form, QuestionType
 
+# 1. Tells OAuthLib to ignore the "Scope has changed" warnings
+os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
+# 2. Allows OAuthLib to work over regular HTTP (localhost) instead of requiring HTTPS
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+
+# --- OAUTH CONFIGURATION ---
 SCOPES = [
     "https://www.googleapis.com/auth/forms.body",
-    "https://www.googleapis.com/auth/drive"
+    "https://www.googleapis.com/auth/drive.file"
 ]
 
-def authenticate_user():
-    creds = None
-    # The file token.json stores the user's access and refresh tokens.
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+CLIENT_SECRETS_FILE = os.getenv("GOOGLE_CLIENT_SECRETS_FILE", "web_client_secret.json")
+REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/callback")
+
+
+# ==========================================
+# WEB OAUTH 2.0 FLOW HELPERS
+# ==========================================
+
+def get_auth_flow() -> Flow:
+    """Configures the OAuth flow using Web Application client secrets."""
+    return Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+
+
+def generate_auth_url() -> tuple[str, str, str]:
+    """Generates the Google OAuth consent URL, a state token, and a PKCE code verifier."""
+    flow = get_auth_flow()
+    auth_url, state = flow.authorization_url(
+        access_type="offline",
+        include_granted_scopes="true",
+        prompt="consent" 
+    )
+    # Extract the secretly generated PKCE verifier so we can save it!
+    return auth_url, state, getattr(flow, 'code_verifier', None)
+
+
+def exchange_code_for_credentials(code: str, state: str, code_verifier: str) -> dict:
+    """Exchanges Google's callback code for a credentials dictionary."""
+    # We must explicitly rebuild the flow with the EXACT state from the session
+    flow = Flow.from_client_secrets_file(
+        CLIENT_SECRETS_FILE,
+        scopes=SCOPES,
+        state=state,
+        redirect_uri=REDIRECT_URI
+    )
     
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                'oauth_client_credentials.json', SCOPES)
-            creds = flow.run_local_server(port=0)
-        # Save the credentials for the next run
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-            
-    return creds
+    # Inject the PKCE verifier back into the flow
+    if code_verifier:
+        flow.code_verifier = code_verifier
+        
+    flow.fetch_token(code=code)
+    creds = flow.credentials
+
+    return {
+        "token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "token_uri": creds.token_uri,
+        "client_id": creds.client_id,
+        "client_secret": creds.client_secret,
+        "scopes": creds.scopes
+    }
+
+def get_forms_service_from_dict(creds_dict: dict):
+    """Rebuilds the Google Forms API client service dynamically from stored session credentials."""
+    creds = Credentials(**creds_dict)
+    return build("forms", "v1", credentials=creds)
+
+
+# ==========================================
+# SCHEMA TO GOOGLE API TRANSLATOR
+# ==========================================
 
 def translate_to_google_api(form_data: Form) -> list[dict]:
     """Translates the Pydantic Form object into Google Forms batchUpdate requests."""
     requests = []
-    index = 0  # Google requires us to specify the exact index where each item is placed
-    
+    index = 0
+
     for i, section in enumerate(form_data.sections):
-        # 1. Add a Text Item to act as the Section Header ONLY if it's not the first section
+        # 1. Add a Page Break / Section Header if it's not the first section
         if i != 0:
             requests.append({
                 "createItem": {
                     "item": {
                         "title": section.title,
                         "description": section.description or "",
-                        "pageBreakItem": {}  # A read-only text block in the form
+                        "pageBreakItem": {}
                     },
                     "location": {"index": index}
                 }
             })
             index += 1
 
-        # 2. Iterate through the questions in this section
+        # 2. Iterate through questions in this section
         for q in section.questions:
-            # Build the base question item
             item = {
                 "title": q.title,
                 "questionItem": {
@@ -61,33 +112,36 @@ def translate_to_google_api(form_data: Form) -> list[dict]:
                     }
                 }
             }
-            
-            # Create a pointer to the nested question payload for easier assignment
+
             question_payload = item["questionItem"]["question"]
 
-            # 3. Map our Enums to Google's specific payload structures
+            # Map Question Types
             if q.type == QuestionType.SHORT_TEXT:
                 question_payload["textQuestion"] = {"paragraph": False}
-                
+
             elif q.type == QuestionType.LONG_TEXT:
                 question_payload["textQuestion"] = {"paragraph": True}
-                
+
             elif q.type in [QuestionType.MULTIPLE_CHOICE, QuestionType.CHECKBOXES, QuestionType.DROPDOWN]:
-                choices = [{"value": opt} if isinstance(opt, str) else {"value": getattr(opt, 'label', str(opt))} for opt in (q.options or [])]
-                
+                choices = []
+                for opt in (q.options or []):
+                    if isinstance(opt, str):
+                        choices.append({"value": opt})
+                    else:
+                        choices.append({"value": getattr(opt, "label", str(opt))})
+
                 if q.type == QuestionType.MULTIPLE_CHOICE:
                     g_type = "RADIO"
                 elif q.type == QuestionType.CHECKBOXES:
                     g_type = "CHECKBOX"
                 else:
                     g_type = "DROP_DOWN"
-                    
+
                 question_payload["choiceQuestion"] = {
                     "type": g_type,
                     "options": choices
                 }
 
-            # 4. Wrap the built item in the createItem command and add to the list
             requests.append({
                 "createItem": {
                     "item": item,
@@ -95,32 +149,5 @@ def translate_to_google_api(form_data: Form) -> list[dict]:
                 }
             })
             index += 1
-            
+
     return requests
-
-
-# def test_google_apis():
-#     print("Starting authentication flow...")
-#     creds = authenticate_user()
-
-#     # Build the Forms servic
-#     forms_service = build('forms', 'v1', credentials=creds)
-
-#     form_manifest = {
-#             "info": {
-#                 "title": "API Connection Test",
-#                 "documentTitle": "Prototype Blank Form"
-#             }
-#         }
-        
-#     print("Creating form in your Google Drive...")
-#     result = forms_service.forms().create(body=form_manifest).execute()
-#     form_id = result["formId"]
-
-#     print(f"Success! Form ID: {form_id}")
-#     print(f"\n\nresult info: {result}\n\n")
-#     print(f"Live Form URL (to fill out): {result['responderUri']}")
-#     print("Check your personal Google Drive—the form is already there!")
-
-# if __name__ == "__main__":
-#     test_google_apis()

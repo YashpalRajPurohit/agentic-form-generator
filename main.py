@@ -1,70 +1,139 @@
 import json
-import uuid
+import os
 
-from fastapi import Depends, FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import FileResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from starlette.middleware.sessions import SessionMiddleware
 
 import models
 from database import engine, get_db
+from form_utils import exchange_code_for_credentials, generate_auth_url
 from graph import build_form_graph
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Agentic Form Generator")
 
+# --- ADD MIDDLEWARE ---
+# This encrypts session data (like Google tokens) into a secure HTTP-only browser cookie.
+# In production, change the secret_key to a secure environment variable!
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET_KEY", "super_secret_dev_key"))
+
 # Initialize the graph once when the server starts
 form_graph = build_form_graph()
+
+# ==========================================
+# FRONTEND ROUTE
+# ==========================================
+@app.get("/")
+def serve_frontend():
+    """Serves the index.html file on the same domain as the backend."""
+    return FileResponse("index.html")
+
+
+# ==========================================
+# OAUTH 2.0 ENDPOINTS
+# ==========================================
+
+@app.get("/auth/login")
+def login(request: Request):
+    """Redirects the user to Google's OAuth consent screen."""
+    auth_url, state, code_verifier = generate_auth_url()    
+    request.session["oauth_state"] = state
+    request.session["code_verifier"] = code_verifier
+    
+    return RedirectResponse(url=auth_url)
+
+@app.get("/auth/callback")
+def auth_callback(request: Request, code: str, state: str):
+    """Catches the user when Google redirects them back to our app."""
+    if state != request.session.get("oauth_state"):
+        raise HTTPException(status_code=400, detail="State mismatch. Potential CSRF attack.")
+    
+    # Retrieve the verifier from the secure cookie
+    code_verifier = request.session.get("code_verifier")    
+    creds_dict = exchange_code_for_credentials(code, state, code_verifier)
+    
+    # Save to encrypted browser session
+    request.session["google_creds"] = creds_dict
+    
+    return {"message": "Successfully authenticated! You can now generate forms via the chat interface."}
+
+@app.get("/auth/logout")
+def logout(request: Request):
+    """Clears the user's secure session."""
+    request.session.clear()
+    return {"message": "Logged out successfully."}
+
+
+# ==========================================
+# WEBSOCKET GENERATION ENGINE
+# ==========================================
 
 @app.websocket("/ws/generate-form")
 async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)):
     await websocket.accept()
     
+    # 1. AUTHENTICATION CHECK
+    # We pull the credentials directly from their encrypted session cookie
+    creds_dict = websocket.session.get("google_creds")
+    if not creds_dict:
+        await websocket.send_text(json.dumps({
+            "error": "Unauthorized. Please authenticate first.", 
+            "auth_required": True,
+            "login_url": "http://localhost:8000/auth/login"
+        }))
+        await websocket.close()
+        return
+
     try:
-        # 1. Wait for the user to send their prompt over the socket
+        # 2. Wait for the user to send their prompt
         data = await websocket.receive_text()
         prompt_data = json.loads(data)
         user_prompt = prompt_data.get("prompt", "")
-        
-        # --- PHASE 2 MEMORY FIX ---
-        # Allow the frontend to pass an existing thread_id to resume a conversation
         client_thread_id = prompt_data.get("thread_id")
         
         await websocket.send_text(json.dumps({"status": "Started processing your request..."}))
         
-        # Create a dummy user for now (until we build OAuth)
-        test_user = db.query(models.User).filter(models.User.email == "test@example.com").first()
+        # Database tracking (using a generic web user until a full user-profile scope is added)
+        test_user = db.query(models.User).filter(models.User.email == "web_user@example.com").first()
         if not test_user:
-            test_user = models.User(email="test@example.com")
+            test_user = models.User(email="web_user@example.com")
             db.add(test_user)
             db.commit()
             db.refresh(test_user)
 
-        # 2. Session Management (Create new OR Resume existing)
+        # 3. Session Management (Create new OR Resume existing)
         if client_thread_id:
-            # We are patching an existing form!
             current_session = db.query(models.FormSession).filter(models.FormSession.thread_id == client_thread_id).first()
             if not current_session:
                 await websocket.send_text(json.dumps({"error": "Thread ID not found in DB."}))
                 return
         else:
-            # We are building a brand new form!
             current_session = models.FormSession(user_id=test_user.id)
-            # TEMPORARY HARDCODE FOR QUICK TESTING: 
-            # Uncomment the next line if you want to test patching without changing your frontend HTML yet
-            # current_session.thread_id = "static-patch-test-001"
             db.add(current_session)
             db.commit()
             db.refresh(current_session)
         
-        # Pass the OFFICIAL thread_id to LangGraph
         config = {"configurable": {"thread_id": current_session.thread_id}}
 
+        # --- PHASE 7 CREDENTIAL INJECTION ---
+        # We pass the web session credentials into the LangGraph state
         initial_state = {
             "user_prompt": user_prompt,
-            "retries": 0
+            "retries": 0,
+            "user_google_creds": creds_dict
         }
 
-        # 3. Stream the graph's execution live
+        # 4. Stream the graph's execution live
         for event in form_graph.stream(initial_state, config=config):
             for node_name, node_state in event.items():
                 
@@ -82,22 +151,17 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                 
                 elif node_name == "executor":
                     final_form = node_state["final_form"]
-
-                    # Update our database to mark it as published and save the Google ID
                     current_session.is_published = True
                     current_session.google_form_id = node_state.get("google_form_id")
                     db.commit()
-
                     await websocket.send_text(json.dumps({
                         "status": "Form published to Google Drive!",
                         "title": final_form.title,
-                        "thread_id": current_session.thread_id # Send this back so the UI can remember it!
+                        "thread_id": current_session.thread_id
                     }))
 
-                # --- NEW: Catch the patch_executor node ---
                 elif node_name == "patch_executor":
                     final_form = node_state["final_form"]
-                    
                     await websocket.send_text(json.dumps({
                         "status": "Form updated successfully via Patch Engine!",
                         "title": final_form.title,
@@ -109,13 +173,3 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
     except Exception as e:
         await websocket.send_text(json.dumps({"error": str(e)}))
         await websocket.close()
-
-
-@app.post("/test-db")
-def test_database_connection(db: Session = Depends(get_db)):
-    new_user = models.User(email="test@example.com")
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    return {"message": "Database connected successfully!", "user_id": new_user.id}

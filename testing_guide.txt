@@ -1,0 +1,44 @@
+Web OAuth & WebSocket Testing Guide
+Prerequisite:
+Ensure your FastAPI server is running (uv run uvicorn main:app --reload).
+
+Crucial Rule: The Domain Must Match!
+Browsers treat localhost and 127.0.0.1 as entirely different websites. If you mix them, your browser will drop the session cookie, resulting in a State mismatch. Potential CSRF attack. error or an Unauthorized WebSocket error. Always use localhost.
+
+Step 1: Load the Application UI
+Open a fresh web browser tab.
+
+Navigate exactly to: http://localhost:8000/
+
+Keep this tab open. This ensures your frontend is running on the exact same domain that will receive the auth cookies.
+
+Step 2: Authenticate with Google
+Open a second tab in the exact same browser window.
+
+Navigate to: http://localhost:8000/auth/login
+
+You will be redirected to the Google Consent screen. Select your Google account.
+
+(If prompted about an unverified app): Click Advanced -> Go to [App Name] (unsafe).
+
+Check the boxes to grant Drive and Forms permissions, then click Continue.
+
+Step 3: Verify the Callback
+After clicking Continue, Google will redirect you back to your app. You should see a blank page displaying this JSON response:
+
+JSON
+{"message": "Successfully authenticated! You can now generate forms via the chat interface."}
+Note: This confirms FastAPI has encrypted your Google tokens and saved them in a secure browser cookie.
+
+Step 4: Test the WebSocket Generation
+Close the auth tab and return to your UI tab (http://localhost:8000/).
+
+Type a test prompt into the chat interface (e.g., "Build a simple 3-question math quiz").
+
+Click Build Form.
+
+Step 5: Confirm Execution
+Check your Terminal: You should see the backend successfully bypass the Unauthorized check and print:
+Authenticating with Google OAuth via Web Session...
+
+Check Google Drive: Once the terminal prints "Form published to Google Drive!", open the Google Drive of the account you logged in with. Your newly generated form will be there!

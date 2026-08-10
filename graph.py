@@ -13,7 +13,7 @@ from langgraph.graph import END, StateGraph
 from psycopg_pool import ConnectionPool
 from pydantic import ValidationError
 
-from form_utils import authenticate_user, translate_to_google_api
+from form_utils import get_forms_service_from_dict
 from schemas import Form
 from state import AgentState
 
@@ -169,9 +169,9 @@ def executor_node(state: AgentState):
     validated_form = state["final_form"]
 
     print("\n--- TRANSLATING & EXECUTING ---")
-    print("Authenticating with Google OAuth...")
-    creds = authenticate_user()
-    forms_service = build("forms", "v1", credentials=creds)
+    print("Authenticating with Google OAuth via Web Session...")
+    creds_dict = state["user_google_creds"] 
+    forms_service = get_forms_service_from_dict(creds_dict)
     
     form_manifest = {
         "info": {
@@ -252,8 +252,9 @@ def patch_executor_node(state: AgentState):
         return state
 
     print(f"Executing {len(requests)} sync operations in 1 batch update...")
-    creds = authenticate_user()
-    forms_service = build("forms", "v1", credentials=creds)
+
+    creds_dict = state["user_google_creds"] 
+    forms_service = get_forms_service_from_dict(creds_dict)
     
     response = forms_service.forms().batchUpdate(
         formId=form_id,
