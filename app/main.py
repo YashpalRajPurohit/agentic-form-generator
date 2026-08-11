@@ -43,38 +43,43 @@ def serve_frontend():
 
 
 # ==========================================
-# OAUTH 2.0 ENDPOINTS
+# AUTHENTICATION ROUTES
 # ==========================================
+
+@app.get("/auth/status")
+def auth_status(request: Request):
+    """Returns whether the current browser session is authenticated."""
+    is_authenticated = "google_creds" in request.session
+    return {"authenticated": is_authenticated}
 
 @app.get("/auth/login")
 def login(request: Request):
     """Redirects the user to Google's OAuth consent screen."""
-    auth_url, state, code_verifier = generate_auth_url()    
+    auth_url, state, code_verifier = generate_auth_url()
     request.session["oauth_state"] = state
     request.session["code_verifier"] = code_verifier
-    
     return RedirectResponse(url=auth_url)
 
 @app.get("/auth/callback")
 def auth_callback(request: Request, code: str, state: str):
-    """Catches the user when Google redirects them back to our app."""
+    """Exchanges code for tokens, saves to session, and redirects back to the main UI."""
     if state != request.session.get("oauth_state"):
         raise HTTPException(status_code=400, detail="State mismatch. Potential CSRF attack.")
     
-    # Retrieve the verifier from the secure cookie
-    code_verifier = request.session.get("code_verifier")    
+    code_verifier = request.session.get("code_verifier")
     creds_dict = exchange_code_for_credentials(code, state, code_verifier)
     
-    # Save to encrypted browser session
+    # Save credentials into encrypted session cookie
     request.session["google_creds"] = creds_dict
     
-    return {"message": "Successfully authenticated! You can now generate forms via the chat interface."}
+    # REDIRECT DIRECTLY BACK TO THE APP
+    return RedirectResponse(url="/")
 
 @app.get("/auth/logout")
 def logout(request: Request):
-    """Clears the user's secure session."""
+    """Clears the session cookie and redirects back to the main UI."""
     request.session.clear()
-    return {"message": "Logged out successfully."}
+    return RedirectResponse(url="/")
 
 
 # ==========================================

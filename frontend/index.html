@@ -2,113 +2,297 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Agentic Form Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Form Generator ⚡</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; }
-        input { width: 75%; padding: 10px; font-size: 16px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4CAF50; color: white; border: none; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        
-        /* New styling for the Gemini-style status */
-        #status-indicator { margin-top: 20px; font-style: italic; color: #666; height: 24px; }
-        #result-box { margin-top: 20px; font-size: 18px; }
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f9fafb;
+            color: #111827;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Top Navigation / Auth Bar */
+        .navbar {
+            width: 100%;
+            background-color: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .auth-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge-error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+
+        .btn-auth {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9rem;
+            border: none;
+            transition: background-color 0.2s;
+        }
+
+        .btn-login {
+            background-color: #2563eb;
+            color: white;
+        }
+
+        .btn-login:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-logout {
+            background-color: #ef4444;
+            color: white;
+        }
+
+        .btn-logout:hover {
+            background-color: #dc2626;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 650px;
+            width: 100%;
+            margin-top: 60px;
+            padding: 0 20px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            margin-bottom: 8px;
+        }
+
+        p.subtitle {
+            color: #6b7280;
+            margin-bottom: 32px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        button.btn-build {
+            padding: 12px 24px;
+            background-color: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button.btn-build:hover {
+            background-color: #059669;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #status-log {
+            margin-top: 24px;
+            text-align: left;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            max-height: 250px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .log-item {
+            margin: 6px 0;
+            font-size: 0.95rem;
+        }
     </style>
 </head>
 <body>
 
-    <h2>AI Form Generator ⚡️</h2>
-    <p>Describe the form you want to build:</p>
-    
-    <div>
-        <input type="text" id="prompt" placeholder="E.g., Create a gym feedback survey...">
-        <button id="submit-btn" onclick="generateForm()">Build Form</button>
+    <!-- NAVBAR -->
+    <div class="navbar">
+        <div class="brand">AgenticForms ⚡</div>
+        <div class="auth-status" id="auth-container">
+            <span id="auth-badge" class="badge">Checking session...</span>
+            <a id="auth-btn" class="btn-auth" style="display: none;">Action</a>
+        </div>
     </div>
 
-    <!-- The single line that will change in place -->
-    <div id="status-indicator"></div>
-    
-    <!-- The box for the final output -->
-    <div id="result-box"></div>
+    <!-- MAIN APP CONTAINER -->
+    <div class="container">
+        <h1>AI Form Generator</h1>
+        <p class="subtitle">Describe the form or quiz you want to build in plain English.</p>
+
+        <div class="input-group">
+            <input type="text" id="prompt-input" placeholder="e.g., Create a 5-question biology quiz on photosynthesis" disabled>
+            <button id="build-btn" class="btn-build" onclick="generateForm()" disabled>Build Form</button>
+        </div>
+
+        <div id="status-log"></div>
+    </div>
 
     <script>
-        // 1. Global variable to store the session ID
-        let currentThreadId = null;
+        let isAuthenticated = false;
 
-        function generateForm() {
-            const promptInput = document.getElementById("prompt");
-            const promptText = promptInput.value.trim();
-            const statusIndicator = document.getElementById("status-indicator");
-            const resultBox = document.getElementById("result-box");
-            const submitBtn = document.getElementById("submit-btn");
-            
-            if (!promptText) return;
-            
-            // Lock the UI for a new run
-            submitBtn.disabled = true;
-            statusIndicator.style.color = "#666";
-            statusIndicator.innerText = "Dialing the AI agent...";
-            
-            // const ws = new WebSocket("ws://localhost:8000/ws/generate-form"); # for local
-            // Automatically detect protocol (wss: for https live, ws: for http local)
-            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        // 1. Check Authentication Status on Page Load
+        async function checkAuth() {
+            const badge = document.getElementById("auth-badge");
+            const btn = document.getElementById("auth-btn");
+            const promptInput = document.getElementById("prompt-input");
+            const buildBtn = document.getElementById("build-btn");
 
-            // Dynamically construct the WebSocket URL based on the host
-            const wsUrl = `${protocol}//${window.location.host}/ws/generate-form`;
+            try {
+                const response = await fetch('/auth/status');
+                const data = await response.json();
 
-            // Connect to the WebSocket
-            const ws = new WebSocket(wsUrl);
-                        
-            ws.onopen = function() {
-                // 2. Send the thread_id along with the prompt
-                ws.send(JSON.stringify({ 
-                    prompt: promptText,
-                    thread_id: currentThreadId 
-                }));
-            };
-            
-            ws.onmessage = function(event) {
-                const data = JSON.parse(event.data);
-                
-                if (data.error) {
-                    statusIndicator.innerText = `❌ Error: ${data.error}`;
-                    statusIndicator.style.color = "red";
-                    submitBtn.disabled = false;
-                    return;
-                }
-
-                // Overwrite the text instead of appending a list!
-                if (data.status) {
-                    statusIndicator.innerText = `✨ ${data.status}`;
-                }
-                
-                // 3. Capture the thread_id when the server returns it
-                if (data.thread_id) {
-                    currentThreadId = data.thread_id;
-                    console.log("Session active! Thread ID:", currentThreadId);
-                }
-                
-                // 4. When finished, clear the status and show the final result
-                if (data.title) {
-                    statusIndicator.innerText = ""; // Hide the status
-                    resultBox.innerHTML = `<span style='color: green;'><strong>✅ Form Ready: ${data.title}</strong></span>`;
+                if (data.authenticated) {
+                    isAuthenticated = true;
+                    badge.innerText = "Connected to Google";
+                    badge.className = "badge badge-success";
                     
-                    // Clean up the input for the next edit
-                    promptInput.value = "";
-                    promptInput.placeholder = "Type your edits here (e.g., 'Make question 1 a dropdown')";
-                    submitBtn.disabled = false;
+                    btn.innerText = "Logout";
+                    btn.className = "btn-auth btn-logout";
+                    btn.href = "/auth/logout";
+                    btn.style.display = "inline-block";
+
+                    promptInput.disabled = false;
+                    buildBtn.disabled = false;
+                } else {
+                    isAuthenticated = false;
+                    badge.innerText = "Not Authenticated";
+                    badge.className = "badge badge-error";
+
+                    btn.innerText = "Login with Google";
+                    btn.className = "btn-auth btn-login";
+                    btn.href = "/auth/login";
+                    btn.style.display = "inline-block";
+
+                    promptInput.disabled = true;
+                    promptInput.placeholder = "Please login with Google first to create forms...";
+                    buildBtn.disabled = true;
                 }
-            };
-            
-            ws.onerror = function(err) {
-                statusIndicator.innerText = "❌ Connection error. Is Uvicorn running?";
-                statusIndicator.style.color = "red";
-                submitBtn.disabled = false;
+            } catch (err) {
+                badge.innerText = "Auth Check Failed";
+                badge.className = "badge badge-error";
+            }
+        }
+
+        // 2. Generate Form via WebSocket
+        function generateForm() {
+            if (!isAuthenticated) {
+                alert("Please login first!");
+                return;
+            }
+
+            const promptInput = document.getElementById("prompt-input");
+            const prompt = promptInput.value.trim();
+            const logDiv = document.getElementById("status-log");
+
+            if (!prompt) return;
+
+            logDiv.style.display = "block";
+            logDiv.innerHTML = '<div class="log-item">⏳ Connecting to agent...</div>';
+
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+            const wsUrl = `${protocol}//${window.location.host}/ws/generate-form`;
+            const ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                ws.send(JSON.stringify({ prompt: prompt }));
             };
 
-            ws.onclose = function() {
-                submitBtn.disabled = false;
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const item = document.createElement("div");
+                item.className = "log-item";
+
+                if (data.status === "error") {
+                    item.style.color = "#dc2626";
+                    item.innerText = `❌ Error: ${data.message}`;
+                } else if (data.status === "complete") {
+                    item.style.color = "#059669";
+                    item.innerText = `🎉 ${data.message}`;
+                    if (data.form_url) {
+                        item.innerHTML += ` <a href="${data.form_url}" target="_blank">Open Form</a>`;
+                    }
+                } else {
+                    item.innerText = `⚡ ${data.message}`;
+                }
+
+                logDiv.appendChild(item);
+                logDiv.scrollTop = logDiv.scrollHeight;
+            };
+
+            ws.onerror = () => {
+                const item = document.createElement("div");
+                item.className = "log-item";
+                item.style.color = "#dc2626";
+                item.innerText = "❌ WebSocket Connection Error.";
+                logDiv.appendChild(item);
             };
         }
+
+        // Run auth check when DOM loads
+        window.onload = checkAuth;
     </script>
 </body>
 </html>
