@@ -25,6 +25,12 @@ load_dotenv()
 # --- DATABASE SETUP ---
 DB_URI = os.getenv("DATABASE_URL")
 pool = ConnectionPool(conninfo=DB_URI, max_size=10, kwargs={"autocommit": True})
+pool = ConnectionPool(
+    conninfo=DB_URI, 
+    max_size=10, 
+    max_idle=120, 
+    kwargs={"autocommit": True}
+)
 checkpointer = PostgresSaver(pool)
 checkpointer.setup()
 
