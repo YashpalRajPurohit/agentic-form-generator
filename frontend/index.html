@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Form Generator ⚡</title>
+    <title>Agentic Form Generator ⚡</title>
     <style>
         * {
             box-sizing: border-box;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         }
 
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #f9fafb;
-            color: #111827;
+        body { 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f9fafb; 
+            color: #111827; 
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -32,138 +32,54 @@
             align-items: center;
         }
 
-        .brand {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .auth-status {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .badge {
-            padding: 4px 10px;
-            border-radius: 9999px;
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-
-        .badge-success {
-            background-color: #d1fae5;
-            color: #065f46;
-        }
-
-        .badge-error {
-            background-color: #fee2e2;
-            color: #991b1b;
-        }
-
+        .brand { font-weight: 700; font-size: 1.1rem; }
+        .auth-status { display: flex; align-items: center; gap: 12px; }
+        .badge { padding: 4px 10px; border-radius: 9999px; font-size: 0.85rem; font-weight: 500; }
+        .badge-success { background-color: #d1fae5; color: #065f46; }
+        .badge-error { background-color: #fee2e2; color: #991b1b; }
+        
         .btn-auth {
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-weight: 600;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9rem;
-            border: none;
-            transition: background-color 0.2s;
+            padding: 8px 16px; border-radius: 6px; font-weight: 600; 
+            cursor: pointer; text-decoration: none; font-size: 0.9rem; 
+            border: none; transition: background-color 0.2s;
         }
-
-        .btn-login {
-            background-color: #2563eb;
-            color: white;
-        }
-
-        .btn-login:hover {
-            background-color: #1d4ed8;
-        }
-
-        .btn-logout {
-            background-color: #ef4444;
-            color: white;
-        }
-
-        .btn-logout:hover {
-            background-color: #dc2626;
-        }
+        .btn-login { background-color: #2563eb; color: white; }
+        .btn-login:hover { background-color: #1d4ed8; }
+        .btn-logout { background-color: #ef4444; color: white; }
+        .btn-logout:hover { background-color: #dc2626; }
 
         /* Main Container */
         .container {
             max-width: 650px;
             width: 100%;
-            margin-top: 60px;
+            margin-top: 40px;
             padding: 0 20px;
-            text-align: center;
         }
 
-        h1 {
-            font-size: 2.2rem;
-            margin-bottom: 8px;
-        }
+        h2 { font-size: 2rem; margin-bottom: 8px; }
+        p.subtitle { color: #6b7280; margin-bottom: 24px; font-size: 1.1rem; }
 
-        p.subtitle {
-            color: #6b7280;
-            margin-bottom: 32px;
-        }
-
-        .input-group {
-            display: flex;
-            gap: 8px;
-        }
-
+        .input-group { display: flex; gap: 8px; }
+        
         input[type="text"] {
-            flex: 1;
-            padding: 12px 16px;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 1rem;
-            outline: none;
+            flex: 1; padding: 12px 16px; border: 1px solid #d1d5db; 
+            border-radius: 8px; font-size: 1rem; outline: none;
         }
-
         input[type="text"]:focus {
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
         button.btn-build {
-            padding: 12px 24px;
-            background-color: #10b981;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
+            padding: 12px 24px; background-color: #10b981; color: white; 
+            border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; 
+            cursor: pointer; transition: background-color 0.2s;
         }
+        button.btn-build:hover { background-color: #059669; }
+        button:disabled { background: #ccc; cursor: not-allowed; opacity: 0.7; }
 
-        button.btn-build:hover {
-            background-color: #059669;
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        #status-log {
-            margin-top: 24px;
-            text-align: left;
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 16px;
-            max-height: 250px;
-            overflow-y: auto;
-            display: none;
-        }
-
-        .log-item {
-            margin: 6px 0;
-            font-size: 0.95rem;
-        }
+        /* Gemini-style status */
+        #status-indicator { margin-top: 24px; font-style: italic; color: #666; height: 24px; }
+        #result-box { margin-top: 20px; font-size: 18px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -179,26 +95,31 @@
 
     <!-- MAIN APP CONTAINER -->
     <div class="container">
-        <h1>AI Form Generator</h1>
-        <p class="subtitle">Describe the form or quiz you want to build in plain English.</p>
-
+        <h2>AI Form Generator ⚡️</h2>
+        <p class="subtitle">Describe the form you want to build:</p>
+        
         <div class="input-group">
-            <input type="text" id="prompt-input" placeholder="e.g., Create a 5-question biology quiz on photosynthesis" disabled>
-            <button id="build-btn" class="btn-build" onclick="generateForm()" disabled>Build Form</button>
+            <input type="text" id="prompt" placeholder="E.g., Create a gym feedback survey..." disabled>
+            <button id="submit-btn" class="btn-build" onclick="generateForm()" disabled>Build Form</button>
         </div>
 
-        <div id="status-log"></div>
+        <!-- The single line that will change in place -->
+        <div id="status-indicator"></div>
+        
+        <!-- The box for the final output -->
+        <div id="result-box"></div>
     </div>
 
     <script>
+        let currentThreadId = null;
         let isAuthenticated = false;
 
         // 1. Check Authentication Status on Page Load
         async function checkAuth() {
             const badge = document.getElementById("auth-badge");
             const btn = document.getElementById("auth-btn");
-            const promptInput = document.getElementById("prompt-input");
-            const buildBtn = document.getElementById("build-btn");
+            const promptInput = document.getElementById("prompt");
+            const buildBtn = document.getElementById("submit-btn");
 
             try {
                 const response = await fetch('/auth/status');
@@ -243,51 +164,82 @@
                 return;
             }
 
-            const promptInput = document.getElementById("prompt-input");
-            const prompt = promptInput.value.trim();
-            const logDiv = document.getElementById("status-log");
-
-            if (!prompt) return;
-
-            logDiv.style.display = "block";
-            logDiv.innerHTML = '<div class="log-item">⏳ Connecting to agent...</div>';
-
+            const promptInput = document.getElementById("prompt");
+            const promptText = promptInput.value.trim();
+            const statusIndicator = document.getElementById("status-indicator");
+            const resultBox = document.getElementById("result-box");
+            const submitBtn = document.getElementById("submit-btn");
+            
+            if (!promptText) return;
+            
+            // Lock the UI for a new run
+            submitBtn.disabled = true;
+            resultBox.innerHTML = ""; // Clear previous results
+            statusIndicator.style.color = "#666";
+            statusIndicator.innerText = "Dialing the AI agent...";
+            
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             const wsUrl = `${protocol}//${window.location.host}/ws/generate-form`;
             const ws = new WebSocket(wsUrl);
-
-            ws.onopen = () => {
-                ws.send(JSON.stringify({ prompt: prompt }));
+                        
+            ws.onopen = function() {
+                ws.send(JSON.stringify({ 
+                    prompt: promptText,
+                    thread_id: currentThreadId 
+                }));
             };
-
-            ws.onmessage = (event) => {
+            
+            ws.onmessage = function(event) {
                 const data = JSON.parse(event.data);
-                const item = document.createElement("div");
-                item.className = "log-item";
-
-                if (data.status === "error") {
-                    item.style.color = "#dc2626";
-                    item.innerText = `❌ Error: ${data.message}`;
-                } else if (data.status === "complete") {
-                    item.style.color = "#059669";
-                    item.innerText = `🎉 ${data.message}`;
-                    if (data.form_url) {
-                        item.innerHTML += ` <a href="${data.form_url}" target="_blank">Open Form</a>`;
-                    }
-                } else {
-                    item.innerText = `⚡ ${data.message}`;
+                
+                // Capture the thread_id when the server returns it for continuous edits
+                if (data.thread_id) {
+                    currentThreadId = data.thread_id;
+                    console.log("Session active! Thread ID:", currentThreadId);
                 }
 
-                logDiv.appendChild(item);
-                logDiv.scrollTop = logDiv.scrollHeight;
+                // Robust parser for status text
+                const statusText = data.message || data.text || data.node || data.step || data.details || data.status || (typeof data === 'string' ? data : JSON.stringify(data));
+                
+                if (data.status === "error" || data.error) {
+                    statusIndicator.innerText = `❌ Error: ${data.error || statusText}`;
+                    statusIndicator.style.color = "#dc2626";
+                    submitBtn.disabled = false;
+                    return;
+                }
+
+                if (data.status === "complete" || data.form_url || data.title) {
+                    // Finished! Hide status, show results
+                    statusIndicator.innerText = ""; 
+                    
+                    const title = data.title || "Form Ready";
+                    const url = data.form_url || data.url || data.responder_uri;
+                    
+                    let resultHTML = `<span style='color: #059669;'><strong>✅ ${title}</strong></span>`;
+                    if (url) {
+                        resultHTML += `<br><a href="${url}" target="_blank" style="color: #2563eb; font-weight: bold; text-decoration: underline; display: inline-block; margin-top: 8px;">Open Form in Google Drive ↗</a>`;
+                    }
+                    resultBox.innerHTML = resultHTML;
+                    
+                    // Clean up the input for the next edit
+                    promptInput.value = "";
+                    promptInput.placeholder = "Type your edits here (e.g., 'Make question 1 a dropdown')";
+                    submitBtn.disabled = false;
+                } else {
+                    // Update the single in-place line for intermediate steps
+                    statusIndicator.innerText = `✨ ${statusText}`;
+                    statusIndicator.style.color = "#6b7280";
+                }
+            };
+            
+            ws.onerror = function(err) {
+                statusIndicator.innerText = "❌ Connection error. Is Uvicorn running?";
+                statusIndicator.style.color = "#dc2626";
+                submitBtn.disabled = false;
             };
 
-            ws.onerror = () => {
-                const item = document.createElement("div");
-                item.className = "log-item";
-                item.style.color = "#dc2626";
-                item.innerText = "❌ WebSocket Connection Error.";
-                logDiv.appendChild(item);
+            ws.onclose = function() {
+                submitBtn.disabled = false;
             };
         }
 
