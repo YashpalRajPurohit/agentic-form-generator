@@ -48,8 +48,16 @@
             statusIndicator.style.color = "#666";
             statusIndicator.innerText = "Dialing the AI agent...";
             
-            const ws = new WebSocket("ws://localhost:8000/ws/generate-form");
-            
+            // const ws = new WebSocket("ws://localhost:8000/ws/generate-form"); # for local
+            // Automatically detect protocol (wss: for https live, ws: for http local)
+            const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+
+            // Dynamically construct the WebSocket URL based on the host
+            const wsUrl = `${protocol}//${window.location.host}/ws/generate-form`;
+
+            // Connect to the WebSocket
+            const ws = new WebSocket(wsUrl);
+                        
             ws.onopen = function() {
                 // 2. Send the thread_id along with the prompt
                 ws.send(JSON.stringify({ 
