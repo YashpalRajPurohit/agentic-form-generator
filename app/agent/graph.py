@@ -13,9 +13,9 @@ from langgraph.graph import END, StateGraph
 from psycopg_pool import ConnectionPool
 from pydantic import ValidationError
 
-from app.services.form_utils import get_forms_service_from_dict
-from app.database.schemas import Form
 from app.agent.state import AgentState
+from app.database.schemas import Form
+from app.services.form_utils import get_forms_service_from_dict
 
 # --- LOCAL IMPORTS ---
 from app.services.sync_engine import generate_patch_requests, generate_routing_requests
@@ -24,7 +24,7 @@ load_dotenv()
 
 # --- DATABASE SETUP ---
 DB_URI = os.getenv("DATABASE_URL")
-pool = ConnectionPool(conninfo=DB_URI, max_size=10)
+pool = ConnectionPool(conninfo=DB_URI, max_size=10, kwargs={"autocommit": True})
 checkpointer = PostgresSaver(pool)
 checkpointer.setup()
 

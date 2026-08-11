@@ -12,8 +12,9 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 # 1. Tells OAuthLib to ignore the "Scope has changed" warnings
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 # 2. Allows OAuthLib to work over regular HTTP (localhost) instead of requiring HTTPS
-os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
-
+if "localhost" in os.getenv("GOOGLE_REDIRECT_URI", "localhost"):
+    os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
+    
 # --- OAUTH CONFIGURATION ---
 SCOPES = [
     "https://www.googleapis.com/auth/forms.body",
