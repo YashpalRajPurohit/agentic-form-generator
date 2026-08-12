@@ -10,7 +10,7 @@ export default function Navbar() {
     async function checkAuth() {
       try {
         // Crucial: 'include' tells the browser to send the secure session cookie!
-        const response = await fetch('http://localhost:8000/auth/status', {
+        const response = await fetch('process.env.NEXT_PUBLIC_API_URL/auth/status', {
           credentials: 'include', 
         });
         
@@ -42,7 +42,7 @@ export default function Navbar() {
               Connected to Google
             </span>
             <a 
-              href="http://localhost:8000/auth/logout" 
+              href="process.env.NEXT_PUBLIC_API_URL/auth/logout" 
               className="bg-[#102C57] hover:bg-[#65082b] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
             >
               Logout
@@ -54,7 +54,7 @@ export default function Navbar() {
               Not Authenticated
             </span>
             <a 
-              href="http://localhost:8000/auth/login" 
+              href="process.env.NEXT_PUBLIC_API_URL/auth/login" 
               className="bg-[#102C57] hover:bg-[#3d1212] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
             >
               Login with Google

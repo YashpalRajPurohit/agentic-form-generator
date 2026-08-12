@@ -25,7 +25,7 @@ export default function Home() {
 
     async function fetchThreadDetails() {
       try {
-        const res = await fetch(`http://localhost:8000/api/threads`, { credentials: 'include' });
+        const res = await fetch(`process.env.NEXT_PUBLIC_API_URL/api/threads`, { credentials: 'include' });
         if (res.ok) {
           const threads = await res.json();
           const current = threads.find((t: any) => t.thread_id === activeThreadId);
