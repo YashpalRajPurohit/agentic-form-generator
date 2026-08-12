@@ -6,11 +6,14 @@ export default function Navbar() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // Safely grab the backend URL
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   useEffect(() => {
     async function checkAuth() {
       try {
         // Crucial: 'include' tells the browser to send the secure session cookie!
-        const response = await fetch('process.env.NEXT_PUBLIC_API_URL/auth/status', {
+        const response = await fetch(`${backendUrl}/auth/status`, {
           credentials: 'include', 
         });
         
@@ -25,7 +28,7 @@ export default function Navbar() {
       }
     }
     checkAuth();
-  }, []);
+  }, [backendUrl]);
 
   return (
     <nav className="w-full bg-[#FEFAF6] border-b border-[#c4a991] px-6 py-3 flex justify-between items-center shadow-sm shrink-0">
@@ -41,8 +44,9 @@ export default function Navbar() {
             <span className="bg-[#DAC0A3] text-[#FEFAF6] text-xs font-bold px-3 py-1 rounded-full">
               Connected to Google
             </span>
+            {/* Inject the variable using curly braces and backticks */}
             <a 
-              href="process.env.NEXT_PUBLIC_API_URL/auth/logout" 
+              href={`${backendUrl}/auth/logout`} 
               className="bg-[#102C57] hover:bg-[#65082b] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
             >
               Logout
@@ -53,9 +57,10 @@ export default function Navbar() {
             <span className="bg-[#FF8A8A] text-[#FEFAF6] text-xs font-bold px-3 py-1 rounded-full">
               Not Authenticated
             </span>
+            {/* Inject the variable using curly braces and backticks */}
             <a 
-              href="process.env.NEXT_PUBLIC_API_URL/auth/login" 
-              className="bg-[#102C57] hover:bg-[#3d1212] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              href={`${backendUrl}/auth/login`} 
+              className="bg-[#102C57] hover:bg-[#4B5694] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
             >
               Login with Google
             </a>

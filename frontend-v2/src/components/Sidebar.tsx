@@ -21,10 +21,14 @@ export default function Sidebar({ activeThreadId, onSelectThread, refreshTrigger
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 1. Safely grab the backend URL
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
   useEffect(() => {
     async function fetchThreads() {
       try {
-        const response = await fetch('process.env.NEXT_PUBLIC_API_URL/api/threads', {
+        // 2. Inject the variable with backticks and ${}
+        const response = await fetch(`${backendUrl}/api/threads`, {
           credentials: 'include'
         });
         if (response.ok) {
@@ -38,14 +42,15 @@ export default function Sidebar({ activeThreadId, onSelectThread, refreshTrigger
       }
     }
     fetchThreads();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, backendUrl]); // Added backendUrl to dependencies
 
   const handleDelete = async (threadIdToDelete: string, e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("Are you sure you want to delete this chat?")) return;
 
     try {
-      const response = await fetch(`process.env.NEXT_PUBLIC_API_URL/api/threads/${threadIdToDelete}`, {
+      // 3. Inject the variable with backticks and ${}
+      const response = await fetch(`${backendUrl}/api/threads/${threadIdToDelete}`, {
         method: 'DELETE',
         credentials: 'include'
       });

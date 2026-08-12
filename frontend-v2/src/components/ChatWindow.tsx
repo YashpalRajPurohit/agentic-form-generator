@@ -87,11 +87,15 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
     setIsProcessing(true);
     let documentContext = "";
 
+    // 1. Define backendUrl at the very top of the function
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
     if (selectedFile) {
       const formData = new FormData();
       formData.append('file', selectedFile);
       try {
-        const uploadRes = await fetch('process.env.NEXT_PUBLIC_API_URL/api/upload', {
+        // 2. Inject the variable with backticks and ${}
+        const uploadRes = await fetch(`${backendUrl}/api/upload`, {
           method: 'POST',
           body: formData,
           credentials: 'include'
@@ -117,13 +121,12 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
     setInputValue('');
     setSelectedFile(null);
 
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-    // Automatically switch to wss:// (secure) if the backend is https://
+    // 3. Keep your awesome WebSocket dynamic logic!
     const wsProtocol = backendUrl.startsWith('https') ? 'wss://' : 'ws://';
     const wsHost = backendUrl.replace('https://', '').replace('http://', '');
 
     const ws = new WebSocket(`${wsProtocol}${wsHost}/ws/generate-form`);
-    
+
     const tempAiId = (Date.now() + 1).toString();
     
     // UPDATED: Softer initial loading state
