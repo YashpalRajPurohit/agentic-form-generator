@@ -47,7 +47,7 @@ export default function Navbar() {
             {/* Inject the variable using curly braces and backticks */}
             <a 
               href={`${backendUrl}/auth/logout`} 
-              className="bg-[#102C57] hover:bg-[#65082b] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="bg-[#102C57] hover:bg-[#4B5694] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-full transition-colors"
             >
               Logout
             </a>
@@ -60,7 +60,7 @@ export default function Navbar() {
             {/* Inject the variable using curly braces and backticks */}
             <a 
               href={`${backendUrl}/auth/login`} 
-              className="bg-[#102C57] hover:bg-[#4B5694] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+              className="bg-[#102C57] hover:bg-[#4B5694] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-full transition-colors"
             >
               Login with Google
             </a>
