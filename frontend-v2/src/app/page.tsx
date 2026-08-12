@@ -1,72 +1,79 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
+import Sidebar from "@/components/Sidebar";
+import ChatWindow from "@/components/ChatWindow";
+import PreviewPane from "@/components/PreviewPane";
 
-export default function Navbar() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+export default function Home() {
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [currentFormId, setCurrentFormId] = useState<string | null>(null);
+  const [previewRefreshKey, setPreviewRefreshKey] = useState(0);
 
-  // Safely grab the backend URL
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
-    async function checkAuth() {
+    if (!activeThreadId) {
+      setCurrentFormId(null);
+      return;
+    }
+
+    async function fetchThreadDetails() {
       try {
-        // Crucial: 'include' tells the browser to send the secure session cookie!
-        const response = await fetch(`${backendUrl}/auth/status`, {
-          credentials: 'include', 
-        });
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const res = await fetch(`${backendUrl}/api/threads`, { credentials: 'include' });
         
-        if (response.ok) {
-          const data = await response.json();
-          setIsAuthenticated(data.authenticated);
+        if (res.ok) {
+          const threads = await res.json();
+          const current = threads.find((t: any) => t.thread_id === activeThreadId);
+          if (current && current.google_form_id) {
+            setCurrentFormId(current.google_form_id);
+          } else {
+            setCurrentFormId(null);
+          }
         }
-      } catch (error) {
-        console.error("Auth check failed:", error);
-      } finally {
-        setLoading(false);
+      } catch (err) {
+        console.error("Failed to load thread details", err);
       }
     }
-    checkAuth();
-  }, [backendUrl]);
+    fetchThreadDetails();
+  }, [activeThreadId]);
+
+  const handleThreadCreated = (newThreadId: string, formId?: string) => {
+    setActiveThreadId(newThreadId);
+    setRefreshTrigger(prev => prev + 1);
+    if (formId) setCurrentFormId(formId);
+  };
+
+  const handleFormUpdated = () => {
+    setPreviewRefreshKey(prev => prev + 1);
+  };
 
   return (
-    <nav className="w-full bg-[#FEFAF6] border-b border-[#c4a991] px-6 py-3 flex justify-between items-center shadow-sm shrink-0">
-      <div className="font-bold text-xl text-[#102C57]">
-        AgenticForms <span className="text-[#102C57]">⚡</span>
-      </div>
+    <main className="flex h-full w-full overflow-hidden m-0 p-0 bg-white">
+      <Sidebar 
+        activeThreadId={activeThreadId} 
+        onSelectThread={setActiveThreadId} 
+        refreshTrigger={refreshTrigger}
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+      />
       
-      <div className="flex items-center gap-4">
-        {loading ? (
-          <span className="text-sm text-[#FEFAF6] opacity-80">Checking session...</span>
-        ) : isAuthenticated ? (
-          <>
-            <span className="bg-[#DAC0A3] text-[#FEFAF6] text-xs font-bold px-3 py-1 rounded-full">
-              Connected to Google
-            </span>
-            {/* Inject the variable using curly braces and backticks */}
-            <a 
-              href={`${backendUrl}/auth/logout`} 
-              className="bg-[#102C57] hover:bg-[#65082b] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              Logout
-            </a>
-          </>
-        ) : (
-          <>
-            <span className="bg-[#FF8A8A] text-[#FEFAF6] text-xs font-bold px-3 py-1 rounded-full">
-              Not Authenticated
-            </span>
-            {/* Inject the variable using curly braces and backticks */}
-            <a 
-              href={`${backendUrl}/auth/login`} 
-              className="bg-[#102C57] hover:bg-[#3d1212] text-[#FEFAF6] text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-            >
-              Login with Google
-            </a>
-          </>
-        )}
-      </div>
-    </nav>
+      <ChatWindow 
+        activeThreadId={activeThreadId} 
+        onThreadCreated={handleThreadCreated}
+        onFormIdUpdate={setCurrentFormId}
+        onFormUpdated={handleFormUpdated}
+      />
+
+      <PreviewPane 
+        formId={currentFormId}
+        isOpen={isPreviewOpen}
+        onToggle={() => setIsPreviewOpen(!isPreviewOpen)}
+        refreshKey={previewRefreshKey}
+      />
+    </main>
   );
 }
