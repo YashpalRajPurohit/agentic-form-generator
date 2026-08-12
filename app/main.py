@@ -33,6 +33,7 @@ from app.services.form_utils import (
 )
 
 form_graph = None
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global form_graph
@@ -47,19 +48,25 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 
 app = FastAPI(title="Agentic Form Generator API", lifespan=lifespan)
 
+# --- SESSION MIDDLEWARE ---
+# Updated with cross-domain flags for Vercel/Render production
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=os.getenv("SESSION_SECRET_KEY", "super_secret_dev_key"),
+    same_site="none",   # Crucial: Allows cross-domain cookies
+    https_only=True     # Crucial: Enforces secure transmission for cross-domain cookies
+)
+
 # --- CORS MIDDLEWARE ---
 # This tells FastAPI to allow requests from your Next.js frontend
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://localhost:3000"], # Your Next.js URL
-    allow_credentials=True,                  # Allows cookies/sessions
-    allow_methods=["*"],                     # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"],                     # Allows all headers
+    allow_origins=[FRONTEND_URL, "http://localhost:3000"], 
+    allow_credentials=True,                  # Allows the browser to pass the session cookie
+    allow_methods=["*"],                     
+    allow_headers=["*"],                     
 )
-
-# --- ADD MIDDLEWARE ---
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET_KEY", "super_secret_dev_key"))
 
 # Initialize the graph once when the server starts
 form_graph = build_form_graph()
