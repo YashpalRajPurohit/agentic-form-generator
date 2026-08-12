@@ -50,7 +50,7 @@ export default function Navbar() {
           </>
         ) : (
           <>
-            <span className="bg-[#102C57] text-[#FEFAF6] text-xs font-bold px-3 py-1 rounded-full">
+            <span className="bg-[#FF3838] text-[#FEFAF6] text-xs font-bold px-3 py-1 rounded-full">
               Not Authenticated
             </span>
             <a 
