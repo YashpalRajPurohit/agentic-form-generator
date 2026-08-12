@@ -1,10 +1,11 @@
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, List, Any
 
 from app.database.schemas import Form
 
 
 class AgentState(TypedDict):
     user_prompt: str
+    chat_history: List[Any]
     draft_payload: str
     final_form: Optional[Form]
     old_form: Optional[Form]  # Stores the previous version for diffing

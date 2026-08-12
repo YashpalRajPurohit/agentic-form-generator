@@ -1,8 +1,12 @@
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+# ==========================================
+# AGENT / FORM GENERATION SCHEMAS
+# ==========================================
 
 class QuestionType(str, Enum):
     SHORT_TEXT = "short_text"
@@ -33,7 +37,7 @@ class Question(BaseModel):
     item_id: Optional[str] = Field(default=None, description="Google's internal ID for this item. Do not generate this.")
     title: str = Field(..., description="The actual question text asked to the user.")
     type: QuestionType = Field(..., description="The UI component type for the question being asked.")
-    required: bool = Field(default=False, decription="Whether the user must answer this question.")
+    required: bool = Field(default=False, description="Whether the user must answer this question.")
     options: list[Option] | None = Field(default=None, description="Required only if type is multiple_choice, checkboxes, or dropdown.")
 
     point_value: int = Field(
@@ -74,3 +78,34 @@ class Form(BaseModel):
         default=False, 
         description="Set to True ONLY if the user explicitly asks for a quiz, test, assessment, or graded form."
     )
+
+# ==========================================
+# REST API / DATABASE SCHEMAS (NEW)
+# ==========================================
+
+class MessageBase(BaseModel):
+    role: str
+    content: str
+
+class MessageResponse(MessageBase):
+    id: str
+    thread_id: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ThreadBase(BaseModel):
+    title: str
+
+class ThreadResponse(ThreadBase):
+    id: str
+    thread_id: str  # LangGraph's internal ID
+    google_form_id: Optional[str] = None
+    is_published: bool
+    created_at: datetime
+    updated_at: datetime
+    messages: List[MessageResponse] = []  # Nests the messages inside the thread
+
+    class Config:
+        from_attributes = True

@@ -159,3 +159,18 @@ def translate_to_google_api(form_data: Form) -> list[dict]:
             index += 1
 
     return requests
+
+
+def check_if_form_trashed(form_id: str, creds_dict: dict) -> bool:
+    """Checks Google Drive to see if the form is in the bin or permanently deleted."""
+    creds = Credentials(**creds_dict)
+    
+    drive_service = build("drive", "v3", credentials=creds)
+    
+    try:
+        # Requesting ONLY the 'trashed' boolean field to keep the API call blazing fast
+        file_meta = drive_service.files().get(fileId=form_id, fields="trashed").execute()
+        return file_meta.get("trashed", False)
+    except Exception:
+        # If we get an HttpError (like a 404 Not Found), the form is permanently deleted
+        return True

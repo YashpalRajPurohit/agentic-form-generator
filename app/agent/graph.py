@@ -1,12 +1,10 @@
 # graph.py
 import json
 import os
-from typing import Optional
 
 from dotenv import load_dotenv
-from googleapiclient.discovery import build
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, StateGraph
@@ -24,15 +22,10 @@ load_dotenv()
 
 # --- DATABASE SETUP ---
 DB_URI = os.getenv("DATABASE_URL")
-pool = ConnectionPool(conninfo=DB_URI, max_size=10, kwargs={"autocommit": True})
-pool = ConnectionPool(
-    conninfo=DB_URI, 
-    max_size=10, 
-    max_idle=120, 
-    kwargs={"autocommit": True}
-)
-checkpointer = PostgresSaver(pool)
-checkpointer.setup()
+
+# 1. Define these as None globally so they don't boot up on import
+pool = None
+checkpointer = None
 
 # --- LLM CONFIG ---
 llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.2)
@@ -46,6 +39,7 @@ llm = ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", temperature=0.2)
 def drafter_node(state: AgentState):
     user_prompt = state["user_prompt"]
     existing_form = state.get("final_form")
+    chat_history = state.get("chat_history", [])
     schema_json = Form.model_json_schema()
 
     print("\n--- DRAFTING FORM ---")
@@ -64,17 +58,27 @@ def drafter_node(state: AgentState):
                 1. Output ONLY valid JSON matching the schema without markdown formatting.
                 
                 BRANCHING & CONDITIONAL LOGIC ("Choose Your Own Adventure"):
-                2. If the user requests to skip, branch, or navigate based on answers, use the `action` and `default_action` fields (`continue`, `submit`, `go_to_section`).
-                3. If using `go_to_section`, you MUST provide a `go_to_section_title` that EXACTLY matches the title of the target section.
-                4. **CRITICAL API LIMITATION:** Question-level branching (options with navigation actions) is ONLY permitted on `multiple_choice` and `dropdown` question types.
-                5. A Section's `default_action` dictates where the user goes after completing the final question in that section.
+                2. If the user requests to skip, branch, or navigate based on answers, use the `action` and `default_action` fields.
+                3. If using `go_to_section`, you MUST provide a `go_to_section_title` that EXACTLY matches the target section.
+                4. Question-level branching is ONLY permitted on `multiple_choice` and `dropdown` types.
+                5. A Section's `default_action` dictates navigation after the section.
                 
                 QUIZ & GRADING MODE:
-                6. If the user asks for a "quiz", "test", "assessment", or mentions "points"/"grades", set `is_quiz` to true.
-                7. For quiz questions, assign a positive integer to `point_value` (e.g., 1, 5, 10 based on implied difficulty).
-                8. For demographic or feedback questions (Name, Email, "How did you feel?"), set `point_value` to 0.
-                9. If `point_value` > 0, you MUST provide the exact correct string(s) in the `correct_answers` list. These strings must PERFECTLY MATCH the `label` of the correct Option(s)."""
+                6. If the user asks for a "quiz", "test", "assessment", or mentions "points", set `is_quiz` to true.
+                7. For quiz questions, assign a positive integer to `point_value`.
+                8. For demographic/feedback questions, set `point_value` to 0.
+                9. If `point_value` > 0, provide exact correct string(s) in `correct_answers`.
+                
+                🛑 TOPIC CHANGE GUARDRAIL 🛑
+                10. You are currently editing an existing form. If the user asks to create a completely NEW form on a fundamentally DIFFERENT topic, DO NOT generate a JSON schema. 
+                Instead, output a string starting with "GUARDRAIL_TRIGGERED:" followed by a friendly message advising them to click 'New chat'.
+                
+                🛑 CASUAL CHAT GUARDRAIL (NEW) 🛑
+                11. If the user just says a generic greeting (like 'hello', 'hi', 'what's up') or makes conversational small talk completely unrelated to editing the form, DO NOT generate a JSON schema. 
+                Instead, output a string starting with "CASUAL_CHAT|" followed by a friendly, brief conversational reply asking what they'd like to update in their form.
+                Example: CASUAL_CHAT|Hello! I'm here to help. What would you like to update or change in your form?"""
             ),
+            MessagesPlaceholder(variable_name="chat_history"),
             ("user", 
                 "Schema definition: {schema}\n\nCURRENT FORM STATE:\n{existing_form_json}\n\nUser edit request: {user_prompt}"
             )
@@ -84,7 +88,8 @@ def drafter_node(state: AgentState):
         response = chain.invoke({
             "schema": json.dumps(schema_json),
             "existing_form_json": existing_form_json,
-            "user_prompt": user_prompt
+            "user_prompt": user_prompt,
+            "chat_history": chat_history
         })
 
     # MODE 2: CREATE MODE (Building a brand new form)
@@ -99,18 +104,24 @@ def drafter_node(state: AgentState):
                 CRITICAL INSTRUCTIONS:
                 1. Output ONLY valid JSON without markdown formatting.
                 
-                BRANCHING & CONDITIONAL LOGIC ("Choose Your Own Adventure"):
-                2. If the user requests to skip, branch, or navigate based on answers, use the `action` and `default_action` fields (`continue`, `submit`, `go_to_section`).
-                3. If using `go_to_section`, you MUST provide a `go_to_section_title` that EXACTLY matches the title of the target section.
-                4. **CRITICAL API LIMITATION:** Question-level branching (options with navigation actions) is ONLY permitted on `multiple_choice` and `dropdown` question types.
-                5. A Section's `default_action` dictates where the user goes after completing the final question in that section.
+                BRANCHING & CONDITIONAL LOGIC:
+                2. If the user requests to skip, branch, or navigate based on answers, use the `action` and `default_action` fields.
+                3. If using `go_to_section`, you MUST provide a `go_to_section_title` that EXACTLY matches the target section.
+                4. Question-level branching is ONLY permitted on `multiple_choice` and `dropdown` types.
+                5. A Section's `default_action` dictates navigation after the section.
                 
                 QUIZ & GRADING MODE:
-                6. If the user asks for a "quiz", "test", "assessment", or mentions "points"/"grades", set `is_quiz` to true.
-                7. For quiz questions, assign a positive integer to `point_value` (e.g., 1, 5, 10 based on implied difficulty).
-                8. For demographic or feedback questions (Name, Email, "How did you feel?"), set `point_value` to 0.
-                9. If `point_value` > 0, you MUST provide the exact correct string(s) in the `correct_answers` list. These strings must PERFECTLY MATCH the `label` of the correct Option(s)."""
+                6. If the user asks for a "quiz", "test", "assessment", or mentions "points", set `is_quiz` to true.
+                7. For quiz questions, assign a positive integer to `point_value`.
+                8. For demographic/feedback questions, set `point_value` to 0.
+                9. If `point_value` > 0, provide exact correct string(s) in `correct_answers`.
+                
+                🛑 CASUAL CHAT GUARDRAIL (NEW) 🛑
+                10. If the user just says a generic greeting (like 'hello', 'hi', 'what's up') or makes conversational small talk completely unrelated to building a form, DO NOT generate a JSON schema. 
+                Instead, output a string starting with "CASUAL_CHAT|" followed by a friendly, brief conversational reply guiding them back to form creation.
+                Example: CASUAL_CHAT|Hello! I'm ready to help you build a Google Form. What kind of form would you like to create today?"""
             ),
+            MessagesPlaceholder(variable_name="chat_history"),
             ("user", 
                 "Schema definition: {schema}\n\nUser request: {user_prompt}"
             )
@@ -119,16 +130,40 @@ def drafter_node(state: AgentState):
         chain = prompt | llm | StrOutputParser()
         response = chain.invoke({
             "schema": json.dumps(schema_json),
-            "user_prompt": user_prompt
+            "user_prompt": user_prompt,
+            "chat_history": chat_history
         })
 
     clean_response = response.replace("```json", "").replace("```", "").strip()
+    
+    # 1. Catch the TOPIC CHANGE guardrail
+    if clean_response.startswith("GUARDRAIL_TRIGGERED"):
+        parts = clean_response.split(":", 1)
+        custom_message = parts[1].strip() if len(parts) > 1 else "💡 It looks like you want to create a brand new form. Please click 'New chat' in the sidebar to avoid overwriting this one!"
+        
+        return {
+            "error_message": f"GUARDRAIL|{custom_message}",
+            "draft_payload": existing_form_json if existing_form else "",
+            "old_form": existing_form,
+            "retries": state.get("retries", 0)
+        }
+        
+    # 2. Catch the CASUAL CHAT guardrail (NEW)
+    if clean_response.startswith("CASUAL_CHAT|"):
+        custom_chat_message = clean_response.split("|", 1)[1].strip()
+        return {
+            "error_message": f"CHAT|{custom_chat_message}",
+            "draft_payload": existing_form_json if existing_form else "",
+            "old_form": existing_form,
+            "retries": state.get("retries", 0)
+        }
 
     return {
         "draft_payload": clean_response,
         "old_form": existing_form,
         "retries": state.get("retries", 0)
     }
+
 
 # Node 2: The Validator
 def validator_node(state: AgentState):
@@ -319,6 +354,19 @@ def route_validation(state: AgentState):
 
 
 def build_form_graph():
+    global pool, checkpointer
+    
+    # 2. Initialize the connection pool ONLY when the worker process calls this function
+    if pool is None:
+        pool = ConnectionPool(
+            conninfo=DB_URI, 
+            max_size=10, 
+            max_idle=120, 
+            kwargs={"autocommit": True}
+        )
+        checkpointer = PostgresSaver(pool)
+        checkpointer.setup()
+
     workflow = StateGraph(AgentState)
 
     workflow.add_node("drafter", drafter_node)
