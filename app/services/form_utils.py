@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -174,3 +175,19 @@ def check_if_form_trashed(form_id: str, creds_dict: dict) -> bool:
     except Exception:
         # If we get an HttpError (like a 404 Not Found), the form is permanently deleted
         return True
+
+
+def get_latest_form_schema(form_id: str, creds_dict: dict) -> str:
+    """Fetches the live JSON blueprint of a Google Form."""
+    try:
+        credentials = Credentials(**creds_dict)
+        service = build('forms', 'v1', credentials=credentials)
+        
+        # Make a simple GET request to grab the live form structure
+        form_data = service.forms().get(formId=form_id).execute()
+        
+        # Return it as a nicely formatted JSON string for the LLM to read
+        return json.dumps(form_data, indent=2)
+    except Exception as e:
+        print(f"Failed to fetch live form: {e}")
+        return "{}" # Return empty JSON if it fails so the app doesn't crash

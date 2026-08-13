@@ -18,7 +18,7 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from sqlalchemy.orm import Session
 from starlette.middleware.sessions import SessionMiddleware
 
@@ -30,6 +30,7 @@ from app.services.form_utils import (
     check_if_form_trashed,
     exchange_code_for_credentials,
     generate_auth_url,
+    get_latest_form_schema,
 )
 
 form_graph = None
@@ -110,18 +111,18 @@ def logout(request: Request):
 
 
 # ==========================================
-# REST API (NEW)
+# REST API
 # ==========================================
 
 @app.get("/api/threads", response_model=List[schemas.ThreadResponse])
 def get_user_threads(request: Request, db: Session = Depends(get_db)):
     """Fetch all form generation threads for the logged-in user."""
     creds = request.session.get("google_creds")
-    if not creds:
-        raise HTTPException(status_code=401, detail="Not authenticated")
     
-    # Temporary fallback to a generic user if email isn't in creds yet
-    user_email = creds.get("email", "web_user@example.com")
+    if not creds or not creds.get("email"):
+        raise HTTPException(status_code=401, detail="Not authenticated or email missing from session")
+    
+    user_email = creds.get("email")
     user = db.query(models.User).filter(models.User.email == user_email).first()
     
     if not user:
@@ -134,16 +135,23 @@ def get_user_threads(request: Request, db: Session = Depends(get_db)):
 @app.get("/api/threads/{thread_id}/messages", response_model=List[schemas.MessageResponse])
 def get_thread_messages(thread_id: str, request: Request, db: Session = Depends(get_db)):
     """Fetch all messages for a specific thread to load chat history."""
-    if "google_creds" not in request.session:
+    creds = request.session.get("google_creds")
+    if not creds or not creds.get("email"):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    # 1. First, find the thread using the LangGraph thread_id from the frontend
-    thread = db.query(models.Thread).filter(models.Thread.thread_id == thread_id).first()
-    
-    if not thread:
+    user = db.query(models.User).filter(models.User.email == creds.get("email")).first()
+    if not user:
         return []
 
-    # 2. Then, fetch the messages using that thread's internal database ID
+    # Ensure the thread actually belongs to this specific user!
+    thread = db.query(models.Thread).filter(
+        models.Thread.thread_id == thread_id,
+        models.Thread.user_id == user.id  
+    ).first()
+    
+    if not thread:
+        return [] # Return empty if the thread doesn't exist OR doesn't belong to them
+
     messages = db.query(models.Message).filter(models.Message.thread_id == thread.id).order_by(models.Message.created_at.asc()).all()
     return messages
 
@@ -151,16 +159,23 @@ def get_thread_messages(thread_id: str, request: Request, db: Session = Depends(
 @app.delete("/api/threads/{thread_id}")
 def delete_thread(thread_id: str, request: Request, db: Session = Depends(get_db)):
     """Deletes a thread and all its associated messages."""
-    if "google_creds" not in request.session:
+    creds = request.session.get("google_creds")
+    if not creds or not creds.get("email"):
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    # Find the thread using the LangGraph ID
-    thread = db.query(models.Thread).filter(models.Thread.thread_id == thread_id).first()
+    user = db.query(models.User).filter(models.User.email == creds.get("email")).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Ensure they only delete their own threads!
+    thread = db.query(models.Thread).filter(
+        models.Thread.thread_id == thread_id,
+        models.Thread.user_id == user.id
+    ).first()
     
     if not thread:
-        raise HTTPException(status_code=404, detail="Thread not found")
+        raise HTTPException(status_code=404, detail="Thread not found or unauthorized")
 
-    # SQLAlchemy cascade will automatically delete the child messages!
     db.delete(thread)
     db.commit()
     
@@ -207,9 +222,11 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
     await websocket.accept()
     
     creds_dict = websocket.session.get("google_creds")
-    if not creds_dict:
+    
+    # ⚡ FIX 1: Strictly check for the dictionary AND the email inside it
+    if not creds_dict or not creds_dict.get("email"):
         await websocket.send_text(json.dumps({
-            "error": "Unauthorized. Please authenticate first.", 
+            "error": "Unauthorized or email missing. Please authenticate first.", 
             "auth_required": True
         }))
         await websocket.close()
@@ -237,7 +254,9 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
             agent_prompt = base_prompt
         
         # Database tracking 
-        user_email = creds_dict.get("email", "web_user@example.com")
+        # ⚡ FIX 2: Safely grab the guaranteed email (No more fallbacks!)
+        user_email = creds_dict.get("email")
+        
         test_user = db.query(models.User).filter(models.User.email == user_email).first()
         if not test_user:
             test_user = models.User(email=user_email)
@@ -245,36 +264,59 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
             db.commit()
             db.refresh(test_user)
 
-        # --- NEW: Session Management & History Retrieval ---
-        chat_history = []
+        # --- Session Management & History Retrieval ---
+        
+        # 1. Resolve or Create the Thread FIRST
         if client_thread_id:
             current_thread = db.query(models.Thread).filter(models.Thread.thread_id == client_thread_id).first()
             if not current_thread:
                 await websocket.send_text(json.dumps({"error": "Thread ID not found in DB."}))
                 return
+        else:
+            current_thread = models.Thread(user_id=test_user.id, title=display_prompt[:40] + "...")
+            db.add(current_thread)
+            db.commit()
+            db.refresh(current_thread)
+
+        # 2. Build the Chat History
+        chat_history = []
+
+        # A. Context Injection: If editing, provide the live form structure
+        if current_thread.google_form_id:
+            # Pass the user's credentials to fetch the live form safely
+            current_form_json = get_latest_form_schema(current_thread.google_form_id, creds_dict) 
             
-            # Fetch past messages for this thread, ordered by creation time
+            system_instruction = f"""You are editing an existing Google Form. 
+            Here is the EXACT current structure of the live form:
+            {current_form_json}
+            
+            Do not lose or overwrite existing questions unless the user explicitly asks you to.
+            Only generate the patch operations needed to make the requested changes."""
+            
+            from langchain_core.messages import SystemMessage
+            chat_history.append(SystemMessage(content=system_instruction))
+
+        # B. Sliding Window: Fetch only the last 6 messages (if thread already existed)
+        if client_thread_id:
             past_messages = (
                 db.query(models.Message)
                 .filter(models.Message.thread_id == current_thread.id)
-                .order_by(models.Message.created_at.asc())
+                .order_by(models.Message.created_at.desc()) # Grab newest first
+                .limit(6) # Sliding window: only remember the last 6 interactions!
                 .all()
             )
+            
+            past_messages.reverse() # Flip them back to chronological order
             
             # Convert DB messages to LangChain message formats
             for msg in past_messages:
                 if msg.role == "user":
                     chat_history.append(HumanMessage(content=msg.content))
                 elif msg.role == "ai":
-                    # The AI content is stored as a JSON string, which the LLM can read as context
                     chat_history.append(AIMessage(content=msg.content))
-        else:
-            current_thread = models.Thread(user_id=test_user.id, title=display_prompt[:40] + "...")
-            db.add(current_thread)
-            db.commit()
-            db.refresh(current_thread)
-            
-        # Log CURRENT User Message (Saved after fetching history so it doesn't duplicate)
+                    
+        # 3. Log CURRENT User Message 
+        # (Saved AFTER fetching history so it doesn't duplicate in the LLM's context window)
         user_msg = models.Message(thread_id=current_thread.id, role="user", content=display_prompt)
         db.add(user_msg)
         db.commit()
