@@ -332,7 +332,8 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                         # Push to React UI as an 'info' message
                         await websocket.send_text(json.dumps({
                             "status": "info",
-                            "message": guardrail_msg
+                            "message": guardrail_msg,
+                            "thread_id": current_thread.thread_id
                         }))
                         # 3. HALT execution
                         return
@@ -349,7 +350,8 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
                         # Push to UI using the 'info' status so it renders as a normal message
                         await websocket.send_text(json.dumps({
                             "status": "info",
-                            "message": chat_msg
+                            "message": chat_msg,
+                            "thread_id": current_thread.thread_id
                         }))
                         # Halt execution so it doesn't trigger the rest of the form builder
                         return
