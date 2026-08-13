@@ -44,11 +44,20 @@ export default function Home() {
   const handleThreadCreated = (newThreadId: string, formId?: string) => {
     setActiveThreadId(newThreadId);
     setRefreshTrigger(prev => prev + 1);
-    if (formId) setCurrentFormId(formId);
+    if (formId) {
+      setCurrentFormId(formId);
+      setIsPreviewOpen(true);
+    }
+  };
+
+  const handleFormIdUpdate = (formId: string) => {
+    setCurrentFormId(formId);
+    setIsPreviewOpen(true); // ⚡ Auto-open when form ID is received
   };
 
   const handleFormUpdated = () => {
-    setPreviewRefreshKey(prev => prev + 1);
+    setPreviewRefreshKey(prev => prev + 1); 
+    setIsPreviewOpen(true); // ⚡ Auto-open when form is updated/patched
   };
 
   return (
@@ -64,7 +73,7 @@ export default function Home() {
       <ChatWindow 
         activeThreadId={activeThreadId} 
         onThreadCreated={handleThreadCreated}
-        onFormIdUpdate={setCurrentFormId}
+        onFormIdUpdate={handleFormIdUpdate}
         onFormUpdated={handleFormUpdated}
       />
 

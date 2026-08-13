@@ -155,7 +155,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
         if (data.form_id && onFormIdUpdate) {
           onFormIdUpdate(data.form_id);
         }
-        if (onFormUpdated) {
+        if ((data.status === 'complete' || data.form_id) && onFormUpdated) {
           onFormUpdated();
         }
       }
