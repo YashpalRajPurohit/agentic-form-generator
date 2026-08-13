@@ -19,7 +19,8 @@ if "localhost" in os.getenv("GOOGLE_REDIRECT_URI", "localhost"):
 # --- OAUTH CONFIGURATION ---
 SCOPES = [
     "https://www.googleapis.com/auth/forms.body",
-    "https://www.googleapis.com/auth/drive.file"
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/userinfo.email"
 ]
 
 CLIENT_SECRETS_FILE = os.getenv(
