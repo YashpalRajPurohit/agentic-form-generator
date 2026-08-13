@@ -33,7 +33,22 @@ export default function Sidebar({ activeThreadId, onSelectThread, refreshTrigger
         });
         if (response.ok) {
           const data = await response.json();
-          setThreads(data);
+          // Group the threads by their unique thread_id, keeping only the most recent one
+          const uniqueThreadsMap = new Map();
+          
+          data.forEach((thread: Thread) => {
+            const existing = uniqueThreadsMap.get(thread.thread_id);
+            // If it doesn't exist yet, OR if this new duplicate has a newer timestamp, keep it!
+            if (!existing || new Date(thread.updated_at) > new Date(existing.updated_at)) {
+              uniqueThreadsMap.set(thread.thread_id, thread);
+            }
+          });
+
+          // Convert the Map back to an array and sort them so the newest chats stay at the top
+          const uniqueThreads = Array.from(uniqueThreadsMap.values()).sort((a, b) => 
+            new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+          );
+          setThreads(uniqueThreads);
         }
       } catch (error) {
         console.error("Failed to fetch threads:", error);
