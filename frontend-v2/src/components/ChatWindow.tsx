@@ -65,12 +65,13 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
 
     async function fetchHistory() {
       try {
-        const response = await fetch(`process.env.NEXT_PUBLIC_API_URL/api/threads/${activeThreadId}/messages`, {
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${backendUrl}/api/threads/${activeThreadId}/messages`, {
           credentials: 'include'
         });
+        
         if (response.ok) {
           const data = await response.json();
-          // Historical messages load instantly without typewriter effect
           setMessages(data.map((msg: any) => ({ ...msg, isTyping: false })));
         }
       } catch (error) {
