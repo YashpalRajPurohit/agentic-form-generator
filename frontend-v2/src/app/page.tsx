@@ -14,6 +14,16 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
+  // ⚡ NEW: Wrapper function to handle switching chats
+  const handleSelectThread = (threadId: string | null) => {
+    setActiveThreadId(threadId);
+    
+    // If we are starting a new chat (threadId is null), collapse the preview
+    if (!threadId) {
+      setIsPreviewOpen(false);
+    }
+  };
+
   useEffect(() => {
     if (!activeThreadId) {
       setCurrentFormId(null);
@@ -64,7 +74,7 @@ export default function Home() {
     <main className="flex h-full w-full overflow-hidden m-0 p-0 bg-white">
       <Sidebar 
         activeThreadId={activeThreadId} 
-        onSelectThread={setActiveThreadId} 
+        onSelectThread={handleSelectThread} // ⚡ Use the new wrapper here
         refreshTrigger={refreshTrigger}
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
