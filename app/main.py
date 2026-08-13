@@ -31,6 +31,7 @@ from app.services.form_utils import (
     exchange_code_for_credentials,
     generate_auth_url,
     get_latest_form_schema,
+    get_google_email
 )
 
 form_graph = None
@@ -118,13 +119,19 @@ def logout(request: Request):
 def get_user_threads(request: Request, db: Session = Depends(get_db)):
     """Fetch all form generation threads for the logged-in user."""
     creds = request.session.get("google_creds")
+    if not creds:
+        raise HTTPException(status_code=401, detail="Not authenticated")
     
-    if not creds or not creds.get("email"):
-        raise HTTPException(status_code=401, detail="Not authenticated or email missing from session")
-    
-    user_email = creds.get("email")
+    # Dynamically fetch and cache the email
+    user_email = request.session.get("user_email")
+    if not user_email:
+        user_email = get_google_email(creds)
+        if user_email:
+            request.session["user_email"] = user_email # Cache it!
+        else:
+            raise HTTPException(status_code=401, detail="Could not retrieve email from Google")
+            
     user = db.query(models.User).filter(models.User.email == user_email).first()
-    
     if not user:
         return []
 
@@ -136,21 +143,22 @@ def get_user_threads(request: Request, db: Session = Depends(get_db)):
 def get_thread_messages(thread_id: str, request: Request, db: Session = Depends(get_db)):
     """Fetch all messages for a specific thread to load chat history."""
     creds = request.session.get("google_creds")
-    if not creds or not creds.get("email"):
+    if not creds:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = db.query(models.User).filter(models.User.email == creds.get("email")).first()
+    user_email = request.session.get("user_email") or get_google_email(creds)
+    user = db.query(models.User).filter(models.User.email == user_email).first()
+    
     if not user:
         return []
 
-    # Ensure the thread actually belongs to this specific user!
     thread = db.query(models.Thread).filter(
         models.Thread.thread_id == thread_id,
         models.Thread.user_id == user.id  
     ).first()
     
     if not thread:
-        return [] # Return empty if the thread doesn't exist OR doesn't belong to them
+        return []
 
     messages = db.query(models.Message).filter(models.Message.thread_id == thread.id).order_by(models.Message.created_at.asc()).all()
     return messages
@@ -160,14 +168,15 @@ def get_thread_messages(thread_id: str, request: Request, db: Session = Depends(
 def delete_thread(thread_id: str, request: Request, db: Session = Depends(get_db)):
     """Deletes a thread and all its associated messages."""
     creds = request.session.get("google_creds")
-    if not creds or not creds.get("email"):
+    if not creds:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = db.query(models.User).filter(models.User.email == creds.get("email")).first()
+    user_email = request.session.get("user_email") or get_google_email(creds)
+    user = db.query(models.User).filter(models.User.email == user_email).first()
+    
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Ensure they only delete their own threads!
     thread = db.query(models.Thread).filter(
         models.Thread.thread_id == thread_id,
         models.Thread.user_id == user.id
@@ -180,7 +189,6 @@ def delete_thread(thread_id: str, request: Request, db: Session = Depends(get_db
     db.commit()
     
     return {"status": "success", "message": "Thread deleted"}
-
 
 @app.post("/api/upload")
 async def upload_document(request: Request, file: UploadFile = File(...)):
@@ -222,16 +230,24 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
     await websocket.accept()
     
     creds_dict = websocket.session.get("google_creds")
-    
-    # ⚡ FIX 1: Strictly check for the dictionary AND the email inside it
-    if not creds_dict or not creds_dict.get("email"):
+    if not creds_dict:
         await websocket.send_text(json.dumps({
-            "error": "Unauthorized or email missing. Please authenticate first.", 
+            "error": "Unauthorized. Please authenticate first.", 
             "auth_required": True
         }))
         await websocket.close()
         return
 
+    # Fetch the actual email dynamically!
+    user_email = websocket.session.get("user_email") or get_google_email(creds_dict)
+    if not user_email:
+        await websocket.send_text(json.dumps({
+            "error": "Could not retrieve email from Google. Please re-authenticate.", 
+            "auth_required": True
+        }))
+        await websocket.close()
+        return
+        
     try:
         data = await websocket.receive_text()
         prompt_data = json.loads(data)
@@ -254,9 +270,7 @@ async def websocket_endpoint(websocket: WebSocket, db: Session = Depends(get_db)
             agent_prompt = base_prompt
         
         # Database tracking 
-        # ⚡ FIX 2: Safely grab the guaranteed email (No more fallbacks!)
-        user_email = creds_dict.get("email")
-        
+        # Use the fetched user_email
         test_user = db.query(models.User).filter(models.User.email == user_email).first()
         if not test_user:
             test_user = models.User(email=user_email)

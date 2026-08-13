@@ -34,6 +34,17 @@ REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/call
 # WEB OAUTH 2.0 FLOW HELPERS
 # ==========================================
 
+def get_google_email(creds_dict: dict):
+    """Fetches the user's real email directly from Google."""
+    try:
+        creds = Credentials(**creds_dict)
+        service = build('oauth2', 'v2', credentials=creds)
+        user_info = service.userinfo().get().execute()
+        return user_info.get("email")
+    except Exception as e:
+        print(f"Failed to fetch user email: {e}")
+        return None
+
 def get_auth_flow() -> Flow:
     """Configures the OAuth flow using Web Application client secrets."""
     return Flow.from_client_secrets_file(
