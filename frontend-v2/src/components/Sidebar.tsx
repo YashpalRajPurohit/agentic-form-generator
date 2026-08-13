@@ -99,7 +99,7 @@ export default function Sidebar({ activeThreadId, onSelectThread, refreshTrigger
               threads.map((thread) => (
                 <div 
                   key={thread.id} 
-                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer group ${
+                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer select-none group ${
                     activeThreadId === thread.thread_id 
                       ? 'bg-[#EADBC8] text-[#102C57]' 
                       : 'bg-transparent hover:bg-[#4B5694] text-[#FEFAF6]'

@@ -31,7 +31,7 @@ export default function Navbar() {
   }, [backendUrl]);
 
   return (
-    <nav className="w-full bg-[#FEFAF6] border-b border-[#c4a991] px-6 py-3 flex justify-between items-center shadow-sm shrink-0">
+    <nav className="w-full bg-[#FEFAF6] border-b border-[#c4a991] px-6 py-3 flex justify-between items-center shadow-sm select-none shrink-0">
       <div className="font-bold text-xl text-[#102C57]">
         AgenticForms <span className="text-[#102C57]">⚡</span>
       </div>

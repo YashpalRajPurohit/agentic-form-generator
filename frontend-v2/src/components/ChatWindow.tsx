@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-// --- NEW: Typewriter / Streaming Text Component ---
+// --- Typewriter / Streaming Text Component ---
 function AnimatedText({ text, animate }: { text: string; animate: boolean }) {
   const [displayed, setDisplayed] = useState(animate ? '' : text);
 
@@ -203,7 +203,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
         className="flex flex-col rounded-3xl bg-[#102C57] border border-[#c4a991] shadow-sm focus-within:border-[#FEFAF6] focus-within:ring-1 focus-within:ring-[#FEFAF6] transition-all p-2.5 cursor-text"
       >
         {selectedFile && (
-          <div className="flex items-center gap-2 mb-2 bg-[#FEFAF6] text-[#FEFAF6] px-3 py-1.5 rounded-lg text-xs font-medium w-max border border-[#c4a991]">
+          <div className="flex items-center gap-2 mb-2 bg-[#4B5694] text-[#FEFAF6] px-3 py-1.5 rounded-lg text-xs font-medium w-max border border-[#c4a991] select-none">
             📄 {selectedFile.name}
             <button 
               type="button" 
@@ -256,7 +256,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
   return (
     <div className="flex-1 h-full w-full bg-[#FEFAF6] relative overflow-hidden">
       {messages.length === 0 ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-[#FEFAF6]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-[#FEFAF6] select-none">
           <div className="space-y-2 mb-8">
             <h1 className="text-4xl font-semibold tracking-tight text-[#102C57]">
               What should we focus on?
@@ -268,7 +268,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
           {renderInputForm(true)}
         </div>
       ) : (
-        <div className="absolute inset-0 flex flex-col bg-[#FEFAF6] overflow-hidden">
+        <div className="absolute inset-0 flex flex-col bg-[#FEFAF6] overflow-hidden select-none">
           <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 bg-[#FEFAF6]">
             <div className="max-w-3xl mx-auto w-full space-y-6">
               {messages.map((msg) => {
@@ -328,7 +328,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
           </div>
 
           {/* Sits completely flush at the absolute bottom floor */}
-          <div className="bg-[#FEFAF6] pb-3 pt-1 shrink-0 border-t border-[#c4a991]/40">
+          <div className="bg-[#FEFAF6] pb-3 pt-1 shrink-0 border-t border-[#c4a991]/40 select-none">
             {renderInputForm(false)}
           </div>
         </div>

@@ -48,7 +48,7 @@ export default function PreviewPane({ formId, isOpen, onToggle, refreshKey }: Pr
                 title="Google Form Preview"
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full p-6 text-center text-[#102C57]/60">
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center text-[#102C57]/60 select-none">
                 <span className="text-3xl mb-2">📋</span>
                 <p className="text-xs font-medium">No form generated yet. Send a prompt to preview your live form here!</p>
               </div>
