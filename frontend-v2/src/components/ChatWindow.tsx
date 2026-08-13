@@ -268,7 +268,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
           {renderInputForm(true)}
         </div>
       ) : (
-        <div className="absolute inset-0 flex flex-col bg-[#FEFAF6] overflow-hidden select-none">
+        <div className="absolute inset-0 flex flex-col bg-[#FEFAF6] overflow-hidden">
           <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 bg-[#FEFAF6]">
             <div className="max-w-3xl mx-auto w-full space-y-6">
               {messages.map((msg) => {
@@ -290,7 +290,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
                     <div className={`max-w-[85%] p-4 rounded-2xl shadow-sm text-sm leading-relaxed bg-[#102C57] text-[#FEFAF6] border border-[#c4a991] ${
                       msg.role === 'user' ? 'rounded-br-xs' : 'rounded-bl-xs'
                     }`}>
-                      <div className="whitespace-pre-wrap font-medium">
+                      <div className="whitespace-pre-wrap font-medium select-text cursor-text">
                         {/* MAGIC REVEAL: Typewriter animation on AI text */}
                         {msg.role === 'ai' ? (
                           <AnimatedText text={displayText} animate={!!msg.isTyping} />
@@ -300,7 +300,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
                       </div>
                       
                       {formId && (
-                        <div className="mt-4 flex flex-row gap-2 border-t border-gray-200 pt-3">
+                        <div className="mt-4 flex flex-row gap-2 border-t border-gray-200 pt-3 select-none">
                           <a 
                             href={`https://docs.google.com/forms/d/${formId}/edit`}
                             target="_blank"
@@ -328,7 +328,7 @@ export default function ChatWindow({ activeThreadId, onThreadCreated, onFormIdUp
           </div>
 
           {/* Sits completely flush at the absolute bottom floor */}
-          <div className="bg-[#FEFAF6] pb-3 pt-1 shrink-0 border-t border-[#c4a991]/40 select-none">
+          <div className="bg-[#FEFAF6] pb-3 pt-1 shrink-0 border-t border-[#c4a991]/40">
             {renderInputForm(false)}
           </div>
         </div>
