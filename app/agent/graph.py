@@ -353,6 +353,7 @@ def route_validation(state: AgentState):
     return "execution"
 
 
+
 def build_form_graph():
     global pool, checkpointer
     
@@ -362,7 +363,14 @@ def build_form_graph():
             conninfo=DB_URI, 
             max_size=10, 
             max_idle=120, 
-            kwargs={"autocommit": True}
+            kwargs={
+                "autocommit": True,
+                # ⚡ THE FIX: Send a heartbeat every 60 seconds to prevent Neon from dropping the connection
+                "keepalives": 1,
+                "keepalives_idle": 60,
+                "keepalives_interval": 10,
+                "keepalives_count": 5
+            }
         )
         checkpointer = PostgresSaver(pool)
         checkpointer.setup()
